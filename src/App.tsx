@@ -1,12 +1,18 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { useEffect } from 'react';
+import worker from './example';
+
+const exampleWorker = worker();
 
 function App() {
+  useEffect(() => {
+    (async () => {
+      console.log(await exampleWorker.expensive(1000));
+    })();
+  }, []);
+
   return (
     <div className="App">
       <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
         <p>
           Edit <code>src/App.tsx</code> and save to reload.
         </p>
