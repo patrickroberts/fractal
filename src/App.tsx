@@ -1,13 +1,17 @@
 import { useEffect } from 'react';
-import worker from './example';
-
-const exampleWorker = worker();
 
 function App() {
   useEffect(() => {
-    (async () => {
-      console.log(await exampleWorker.expensive(1000));
-    })();
+    const worker = new Worker(new URL('./example.worker.ts', import.meta.url));
+
+    worker.postMessage(1000);
+    worker.addEventListener('message', (event: MessageEvent<number>) => {
+      console.log(event.data);
+    });
+
+    return () => {
+      worker.terminate();
+    };
   }, []);
 
   return (
