@@ -1,36 +1,55 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import FractalPool from './components/FractalPool';
+import type Fractal from './fractal.rpc';
 
-function App() {
+const size = 384;
+
+const App = () => {
+  const pool = useRef<Fractal[]>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
+
   useEffect(() => {
-    const worker = new Worker(new URL('./example.worker.ts', import.meta.url));
+    (async () => {
+      const workers = pool.current!;
 
-    worker.postMessage(1000);
-    worker.addEventListener('message', (event: MessageEvent<number>) => {
-      console.log(event.data);
-    });
+      await Promise.all(workers.map(worker => worker.setup({
+        expression: 'z**2+c',
+        potential: 'log(log(abs(z))/log(N))/log(2)',
+        center: '-0.5',
+      })));
 
-    return () => {
-      worker.terminate();
-    };
+      const context = canvas.current!.getContext('2d')!;
+
+      for (let dy = 0; dy < size; ++dy) {
+        const data = new Uint32Array(size);
+
+        await Promise.all(workers.map(async (worker, index, { length }) => {
+          const offset = Math.floor(index * data.length / length);
+          const pixels = await worker.render({
+            length: Math.floor((index + 1) * data.length / length) - offset,
+            dx: offset,
+            dy,
+            width: size,
+            height: size,
+            density: size / 4,
+            escape: 5,
+            iterations: 256,
+          });
+
+          data.set(pixels, offset);
+        }));
+
+        context.putImageData(new ImageData(new Uint8ClampedArray(data.buffer), size, 1), 0, dy);
+      }
+    })();
   }, []);
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <>
+      <FractalPool ref={pool} />
+      <canvas ref={canvas} width={size} height={size} />
+    </>
   );
-}
+};
 
 export default App;
