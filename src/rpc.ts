@@ -21,44 +21,62 @@ const enum Completion {
   reject,
 };
 
-const wrap = <T extends WorkerModule>(worker: Worker, factoryMap: LocalTransferableFactoryMap<T> = {}) => {
+const noTransferable: Transferable[] = [];
+const noTransferableFactory = () => noTransferable;
+const noFactoryMap = {};
+
+const wrap = <T extends WorkerModule>(
+  worker: Worker, factoryMap: LocalTransferableFactoryMap<T> = noFactoryMap,
+) => {
   let id = 0;
   const completions: Map<number, Parameters<ConstructorParameters<PromiseConstructor>[0]>> = new Map();
-
-  worker.addEventListener('message', <K extends keyof T>(event: MessageEvent<[id: number, type: Completion, result: ReturnType<T[K]>]>) => {
-    const { 0: id, 1: type, 2: result } = event.data;
-    const completion = completions.get(id)!;
+  const listener = <K extends keyof T>(event: MessageEvent<[id: number, completion: Completion, result: ReturnType<T[K]>]>) => {
+    const { 0: id, 1: completion, 2: result } = event.data;
+    const settle = completions.get(id)![completion];
 
     completions.delete(id);
-    completion[type](result);
-  });
-
-  return Proxy.revocable<Remote<T>>(Object.create(null), {
-    get(target, key) {
+    settle(result);
+  };
+  const { proxy, revoke } = Proxy.revocable<Remote<T>>(Object.create(null), {
+    get: (target, key) => {
       if (typeof key === 'string' && !(key in target)) {
-        (target[key as keyof T] as any) = (...args: Parameters<T[keyof T]>) => new Promise((resolve, reject) => {
-          const { [key as keyof T]: factory = () => [] } = factoryMap;
+        const method = (...args: Parameters<T[keyof T]>) => new Promise((resolve, reject) => {
+          const { [key as keyof T]: factory = noTransferableFactory } = factoryMap;
 
           completions.set(id, [resolve, reject]);
           worker.postMessage([key, id, args], factory.apply(undefined, args));
           id = (id + 1) % Number.MAX_SAFE_INTEGER;
         });
+
+        (target[key as keyof T] as any) = method;
       }
 
       return target[key as keyof T];
     } 
   });
+
+  worker.addEventListener('message', listener);
+
+  return {
+    proxy,
+    revoke: () => {
+      worker.removeEventListener('message', listener);
+      revoke();
+    }
+  };
 };
 
 export type RemoteTransferableFactoryMap<T extends WorkerModule> = Partial<{
   [K in keyof T]: TransferableFactory<[ReturnType<T[K]>]>;
 }>;
 
-const expose = <T extends WorkerModule>(workerModule: T, factoryMap: RemoteTransferableFactoryMap<T> = {}) => {
-  addEventListener('message', async <K extends keyof T>(event: MessageEvent<[key: K, id: number, args: Parameters<T[K]>]>) => {
+const expose = <T extends WorkerModule>(
+  workerModule: T, factoryMap: RemoteTransferableFactoryMap<T> = noFactoryMap,
+) => {
+  const listener = async <K extends keyof T>(event: MessageEvent<[key: K, id: number, args: Parameters<T[K]>]>) => {
     const { 0: key, 1: id, 2: args } = event.data;
     const method = workerModule[key];
-    const { [key]: factory = () => [] } = factoryMap;
+    const { [key]: factory = noTransferableFactory } = factoryMap;
 
     try {
       const value = await method.apply(undefined, args);
@@ -67,7 +85,9 @@ const expose = <T extends WorkerModule>(workerModule: T, factoryMap: RemoteTrans
     } catch (reason) {
       postMessage([id, Completion.reject, reason]);
     }
-  });
+  };
+
+  addEventListener('message', listener);
 };
 
 export { wrap, expose };

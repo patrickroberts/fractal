@@ -1,4 +1,4 @@
-import { Bindings, Complex, cartesian, compile, from } from 'complex-js';
+import { Bindings, Complex, cartesian, compile } from 'complex-js';
 
 export interface SetupOptions {
   expression: string;
@@ -57,16 +57,18 @@ const render = (options: RenderOptions) => {
       ++n;
     }
 
-    pixels[index] = 0xFF000000;
+    let pixel = 0xFF000000;
 
     if (n < N) {
-      const v = n - (potential({ z, N: from(N) }) as Complex).real;
+      const v = 2 * Math.PI * (n - (potential({ z, N: cartesian(N, 0) }) as Complex).real) / N;
 
-      pixels[index] |=
+      pixel |=
         (Math.floor((Math.sin(v + 0 * Math.PI / 3) + 1) * 0x80) << 0) |
         (Math.floor((Math.sin(v + 2 * Math.PI / 3) + 1) * 0x80) << 8) |
         (Math.floor((Math.sin(v + 4 * Math.PI / 3) + 1) * 0x80) << 16); 
     }
+
+    pixels[index] = pixel;
   }
 
   return pixels;
