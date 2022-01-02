@@ -1,5 +1,6 @@
 import * as fractal from './fractal.worker';
-import { Remote, expose } from './rpc';
+import type { Remote } from './rpc';
+import { expose } from './rpc';
 
 expose(fractal, { render: ({ buffer }) => [buffer] });
 

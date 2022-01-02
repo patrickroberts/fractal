@@ -1,5 +1,6 @@
 import { forwardRef, useLayoutEffect, useImperativeHandle, useRef } from 'react';
-import { LocalTransferableFactoryMap, Remote, WorkerModule, wrap } from '../rpc';
+import type { LocalTransferableFactoryMap, Remote, WorkerModule } from '../rpc';
+import { wrap } from '../rpc';
 
 const withWorker = <T extends WorkerModule>(
   workerFactory: () => Worker,

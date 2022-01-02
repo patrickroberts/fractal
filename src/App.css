@@ -1,0 +1,13 @@
+textarea {
+  resize: none;
+  white-space: nowrap;
+}
+
+div {
+  padding-bottom: 0.25rem;
+}
+
+.error {
+  font-family: monospace;
+  white-space: pre;
+}

@@ -1,5 +1,6 @@
-import { ComponentType, RefObject, RefAttributes, useMemo, useState, useImperativeHandle, forwardRef } from 'react';
-import { Remote, WorkerModule } from '../rpc';
+import type { ComponentType, RefObject, RefAttributes } from 'react';
+import { useMemo, useState, useImperativeHandle, forwardRef } from 'react';
+import type { Remote, WorkerModule } from '../rpc';
 
 interface WorkerPoolProps {
   concurrency?: number;
@@ -11,7 +12,7 @@ const withPool = <T extends WorkerModule>(
   const PoolComponent = forwardRef<Remote<T>[], WorkerPoolProps>(({
     concurrency = navigator.hardwareConcurrency,
   }, ref) => {
-    const { 0: workerRefs } = useState<RefObject<Remote<T>>[]>(() => Array.from(
+    const [workerRefs] = useState<RefObject<Remote<T>>[]>(() => Array.from(
       { length: concurrency },
       () => ({ current: null }),
     ));
