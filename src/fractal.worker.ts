@@ -75,11 +75,12 @@ const render = (options: RenderOptions) => {
   const bindings = { c: c!, z: c! };
 
   for (let index = 0; index < pixels.length; ++index) {
-    const r = (((x + index) % width) - cx) / zoom;
-    const i = ((y + Math.floor((x + index) / width)) - cy) / zoom;
     let iteration = 0;
 
-    bindings.z = cartesian(real + r, imag - i);
+    bindings.z = cartesian(
+      real + (((x + index) % width) - cx) / zoom,
+      imag + ((y + Math.floor((x + index) / width)) - cy) / zoom,
+    );
 
     if (!c) {
       bindings.c = bindings.z;

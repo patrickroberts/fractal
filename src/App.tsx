@@ -106,7 +106,7 @@ const App = () => {
     const { real, imag } = compile(center)() as Complex;
     const z = cartesian(
       real + (offsetX - width / 2) / zoom,
-      imag - (offsetY - height / 2) / zoom,
+      imag + (offsetY - height / 2) / zoom,
     );
 
     await navigator.clipboard.writeText(z.toString());
