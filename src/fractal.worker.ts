@@ -70,16 +70,16 @@ const render = (options: RenderOptions) => {
   const { length, x, y } = options;
   const cx = width / 2;
   const cy = height / 2;
-  const pixels = new Uint32Array(length);
+  const data = new Uint8ClampedArray(length * 4);
   const { real, imag } = center;
   const bindings = { c: c!, z: c! };
 
-  for (let index = 0; index < pixels.length; ++index) {
+  for (let index = 0; index < length; ++index) {
     let iteration = 0;
 
     bindings.z = cartesian(
-      real + (((x + index) % width) - cx) / zoom,
-      imag + ((y + Math.floor((x + index) / width)) - cy) / zoom,
+      real + ((x + index) - cx) / zoom,
+      imag + (y - cy) / zoom,
     );
 
     if (!c) {
@@ -95,21 +95,18 @@ const render = (options: RenderOptions) => {
       ++iteration;
     }
 
-    let pixel = 0xFF000000;
-
     if (iteration < iterations) {
       const seed = 2 * Math.PI * (iteration - potential(bindings).real) / iterations;
 
-      pixel |=
-        (Math.floor((Math.sin(seed + 0 * Math.PI / 3) + 1) * 0x80) << 0) |
-        (Math.floor((Math.sin(seed + 2 * Math.PI / 3) + 1) * 0x80) << 8) |
-        (Math.floor((Math.sin(seed + 4 * Math.PI / 3) + 1) * 0x80) << 16); 
+      data[index * 4] = 0x80 * (1 + Math.sin(seed));
+      data[index * 4 + 1] = 0x80 * (1 + Math.sin(seed + Math.PI * 2 / 3));
+      data[index * 4 + 2] = 0x80 * (1 + Math.sin(seed + Math.PI * 4 / 3));
     }
 
-    pixels[index] = pixel;
+    data[index * 4 + 3] = 0xFF;
   }
 
-  return pixels;
+  return new ImageData(data, length, 1);
 };
 
 export { setup, render };

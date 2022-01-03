@@ -57,15 +57,14 @@ const App = () => {
         const worker = idle.pop()!;
         let thread!: Promise<void>;
 
-        thread = worker.render(options).then((pixels) => {
+        thread = worker.render(options).then(imageData => {
           if (cancel) {
             return;
           }
 
-          const data = new Uint8ClampedArray(pixels.buffer);
-          const { length, x, y } = options;
+          const { x, y } = options;
 
-          context.putImageData(new ImageData(data, length, 1), x, y);
+          context.putImageData(imageData, x, y);
           idle.push(worker);
           busy.delete(thread);
         });
