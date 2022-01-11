@@ -5,9 +5,11 @@
   "homepage": "https://patrickroberts.github.io/fractal",
   "dependencies": {
     "@types/node": "^16.11.17",
+    "@types/pako": "^1.0.3",
     "@types/react": "^17.0.38",
     "@types/react-dom": "^17.0.11",
-    "complex-js": "^7.1.0",
+    "complex-js": "^7.1.1",
+    "pako": "^2.0.4",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-scripts": "^5.0.0",

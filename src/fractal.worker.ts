@@ -1,20 +1,8 @@
 import type { Bindings, Complex } from 'complex-js';
 import { cartesian, compile } from 'complex-js';
-import { createDetailedValidator, registerType } from 'typecheck.macro'
 
-export interface SetupOptions {
-  width: number;
-  height: number;
-  zoom: number;
-  center: string;
-  c?: string;
-  iterate: string;
-  iterations: number;
-  escape: number;
-  potential: string;
-}
-
-registerType('SetupOptions');
+import type SetupOptions from './types/SetupOptions';
+import { assert, v1, v2 } from './types/SetupOptions';
 
 export interface RenderOptions {
   length: number;
@@ -26,21 +14,35 @@ let width: number;
 let height: number;
 let zoom: number;
 let center: Complex;
-let c: Complex | undefined;
+let julia: Complex | undefined;
 let iterate: (variables: Bindings) => Complex;
 let iterations: number;
 let escapeSquared: number;
-let potential: (variables: Bindings) => Complex;
-
-const validate = createDetailedValidator<SetupOptions>();
+let seed: (variables: Bindings) => Complex;
+let red: (variables: Bindings) => Complex;
+let green: (variables: Bindings) => Complex;
+let blue: (variables: Bindings) => Complex;
 
 const setup = (options: SetupOptions) => {
-  const errors: [string, unknown, string][] = [];
+  if (!v2.validate(options, [])) {
+    if (!v1.validate(options, [])) {
+      assert(options);
+    }
 
-  if (!validate(options, errors)) {
-    const [[name, actual, expected]] = errors;
-
-    throw new TypeError(`Expected ${name} to be ${expected}; got ${actual}`);
+    options = {
+      width: options.width,
+      height: options.height,
+      zoom: options.zoom,
+      center: options.center,
+      julia: options.c,
+      iterate: options.iterate,
+      iterations: options.iterations,
+      escape: options.escape,
+      seed: `2*pi*(n-(${options.potential}))/N`,
+      red: '255/2*(sin(seed)+1)',
+      green: '255/2*(sin(seed+2*pi/3)+1)',
+      blue: '255/2*(sin(seed+4*pi/3)+1)',
+    }
   }
 
   const re = (z: Complex) => cartesian(z.real, 0);
@@ -57,12 +59,15 @@ const setup = (options: SetupOptions) => {
   iterations = options.iterations;
   escapeSquared = options.escape * options.escape;
   constants.N = cartesian(iterations, 0);
-  potential = compile(options.potential, constants) as typeof potential;
+  seed = compile(options.seed, constants) as typeof seed;
+  red = compile(options.red, constants) as typeof red;
+  green = compile(options.green, constants) as typeof red;
+  blue = compile(options.blue, constants) as typeof red;
 
-  if (options.c === undefined) {
-    c = options.c;
+  if (options.julia === undefined) {
+    julia = options.julia;
   } else {
-    c = compile(options.c)() as typeof c;
+    julia = compile(options.julia)() as typeof julia;
   }
 }
 
@@ -70,43 +75,48 @@ const render = (options: RenderOptions) => {
   const { length, x, y } = options;
   const cx = width / 2;
   const cy = height / 2;
-  const data = new Uint8ClampedArray(length * 4);
+  const imageData = new ImageData(length, 1);
+  const { data } = imageData;
   const { real, imag } = center;
-  const bindings = { c: c!, z: c! };
+  const iterateBindings: Bindings = { c: julia! };
+  const seedBindings: Bindings = {};
+  const colorBindings: Bindings = {};
 
   for (let index = 0; index < length; ++index) {
     let iteration = 0;
 
-    bindings.z = cartesian(
+    iterateBindings.z = cartesian(
       real + ((x + index) - cx) / zoom,
       imag + (y - cy) / zoom,
     );
 
-    if (!c) {
-      bindings.c = bindings.z;
+    if (!julia) {
+      iterateBindings.c = iterateBindings.z;
     }
 
     while (iteration < iterations) {
-      if (bindings.z.norm > escapeSquared) {
+      if (iterateBindings.z.norm > escapeSquared) {
         break;
       }
 
-      bindings.z = iterate(bindings) as typeof bindings.z;
+      iterateBindings.z = iterate(iterateBindings) as typeof iterateBindings.z;
       ++iteration;
     }
 
     if (iteration < iterations) {
-      const seed = 2 * Math.PI * (iteration - potential(bindings).real) / iterations;
+      seedBindings.z = iterateBindings.z;
+      seedBindings.n = cartesian(iteration, 0);
+      colorBindings.seed = seed(seedBindings);
 
-      data[index * 4] = 0x80 * (1 + Math.sin(seed));
-      data[index * 4 + 1] = 0x80 * (1 + Math.sin(seed + Math.PI * 2 / 3));
-      data[index * 4 + 2] = 0x80 * (1 + Math.sin(seed + Math.PI * 4 / 3));
+      data[index * 4] = red(colorBindings).real;
+      data[index * 4 + 1] = green(colorBindings).real;
+      data[index * 4 + 2] = blue(colorBindings).real;
     }
 
     data[index * 4 + 3] = 0xFF;
   }
 
-  return new ImageData(data, length, 1);
+  return imageData;
 };
 
 export { setup, render };
