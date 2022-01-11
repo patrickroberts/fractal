@@ -19,17 +19,34 @@ const initialState = {
   blue: '255/2*(sin(seed+4*pi/3)+1)',
 };
 
-const fromUint8Array = (uint8Array: Uint8Array) => String.fromCharCode(
-  ...Array.from(uint8Array)
+const toUint8Array = (string: string) => Uint8Array.from(
+  string, c => c.charCodeAt(0)
 );
 
+const fromUint8Array = (uint8Array: Uint8Array) => Array.from(
+  uint8Array, code => String.fromCharCode(code)
+).join('');
+
 const toHash = (state: SetupOptions) => `#${
-  btoa(fromUint8Array(deflateRaw(JSON.stringify(state))))
+  btoa(
+    fromUint8Array(
+      deflateRaw(
+        JSON.stringify(state)
+      )
+    )
+  )
 }`;
 
-const fromHash = (hash: string) => assert(JSON.parse(
-  fromUint8Array(inflateRaw(atob(hash.slice(1))))
-));
+const fromHash = (hash: string) => assert(
+  JSON.parse(
+    inflateRaw(
+      toUint8Array(
+        atob(hash.slice(1))
+      ),
+      { to: 'string' }
+    )
+  )
+);
 
 const useSetupOptions = () => {
   const [state, setState] = useState<SetupOptions>(() => {
